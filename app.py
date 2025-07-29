@@ -11,7 +11,7 @@ def parse_pdf():
     if not file_url:
         return jsonify({"error": "fileUrl missing"}), 400
 
-    # Step 1: Download PDF
+    # Step 1: Download the PDF
     try:
         resp = requests.get(file_url, timeout=30)
         resp.raise_for_status()
@@ -27,13 +27,13 @@ def parse_pdf():
             for page in pdf.pages:
                 text = page.extract_text() or ""
                 for line in text.splitlines():
+                    # Keep only lines that likely contain monetary values
                     if any(currency in line for currency in ["£", "€", "$"]):
                         transactions.append({"raw_line": line})
 
         return jsonify({"transactions": transactions})
 
     except Exception as e:
-        # Log the exact reason to Render logs
         print(f"[ERROR] PDF parsing failed: {e}", flush=True)
         return jsonify({"error": f"PDF parsing failed: {str(e)}"}), 500
 
