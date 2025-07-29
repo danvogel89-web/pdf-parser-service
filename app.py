@@ -8,6 +8,9 @@ app = Flask(__name__)
 # ✅ Configure OpenAI
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 
+# ✅ Default PDF for testing
+DEFAULT_PDF_URL = "https://ooudawrnfeattmkngpwr.supabase.co/storage/v1/object/public/storage/account-statement_2025-07-01_2025-07-29_en-gb_8a87a7.pdf"
+
 # ✅ Health Check Route
 @app.route("/", methods=["GET"])
 def health():
@@ -15,10 +18,8 @@ def health():
 
 @app.route('/parse', methods=['POST'])
 def parse_pdf():
-    data = request.get_json()
-    file_url = data.get("fileUrl")
-    if not file_url:
-        return jsonify({"error": "fileUrl missing"}), 400
+    data = request.get_json(silent=True) or {}
+    file_url = data.get("fileUrl") or DEFAULT_PDF_URL
 
     # Step 1: Download the PDF
     try:
@@ -40,7 +41,6 @@ def parse_pdf():
             for page in pdf.pages:
                 text = page.extract_text() or ""
                 for line in text.splitlines():
-                    # Keep only lines that likely contain monetary values
                     if any(currency in line for currency in ["£", "€", "$"]):
                         match = line_pattern.search(line)
                         if match:
@@ -53,7 +53,6 @@ def parse_pdf():
                                 "raw_line": line
                             })
                         else:
-                            # fallback if regex doesn't match
                             transactions.append({"raw_line": line})
 
         # Step 3: Generate AI financial summary
@@ -82,6 +81,7 @@ def parse_pdf():
                 print(f"[ERROR] OpenAI summarization failed: {e}", flush=True)
 
         return jsonify({
+            "file_tested": file_url,
             "transactions": transactions,
             "summary": summary_text or "AI summary unavailable"
         })
